@@ -1,0 +1,35 @@
+# ÄNDERUNG: Hier Ihre NEUE Projekt-ID eintragen (cljgmmwjgwmbokukxaqz)
+project_id = "cljgmmwjgwmbokukxaqz"
+
+[functions.social-auth]
+verify_jwt = false
+
+[functions.fetch-social-metrics]
+verify_jwt = false
+
+[functions.send-report-email]
+verify_jwt = false
+
+[functions.check-follower-alerts]
+verify_jwt = false
+
+[functions.create-checkout]
+verify_jwt = false
+
+[functions.check-subscription]
+verify_jwt = false
+
+[functions.customer-portal]
+verify_jwt = false
+
+[functions.generate-ai-insights]
+verify_jwt = false
+
+[functions.publish-instagram]
+verify_jwt = false
+
+[functions.publish-tiktok]
+verify_jwt = false
+
+[functions.suggest-hashtags]
+verify_jwt = false
