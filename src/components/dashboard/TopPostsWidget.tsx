@@ -13,6 +13,10 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+interface TopPostsWidgetProps {
+  selectedAccountId?: string;
+}
+
 function getPlatformIcon(platform?: string) {
   switch (platform?.toLowerCase()) {
     case "instagram":
@@ -90,15 +94,14 @@ function PostCard({ post, rank, type }: PostCardProps) {
             <Eye className="w-3 h-3" />
             {formatNumber(post.views_count)}
           </span>
-          {/* HIER WURDE DER ENGAGEMENT TEXT ENTFERNT */}
         </div>
       </div>
     </div>
   );
 }
 
-export function TopPostsWidget() {
-  const { topPosts, worstPosts, loading } = useTopPosts();
+export function TopPostsWidget({ selectedAccountId }: TopPostsWidgetProps) {
+  const { topPosts, worstPosts, loading } = useTopPosts(selectedAccountId);
 
   if (loading) {
     return (

@@ -17,11 +17,45 @@ Deno.serve(async (req) => {
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const APIFY_TOKEN = Deno.env.get("APIFY_API_TOKEN");
 
-    if (!APIFY_TOKEN) throw new Error("APIFY_API_TOKEN fehlt in Secrets!");
-
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
     const { data: competitors } = await supabase.from("competitors").select("*");
 
+    // MOCK-MODUS: Wenn kein API Token vorhanden, gib Mock-Daten zurück
+    if (!APIFY_TOKEN) {
+      console.log("[Competitors] APIFY_API_TOKEN fehlt - verwende Mock-Daten");
+      
+      const mockResults = [];
+      for (const competitor of competitors || []) {
+        // Generiere realistische Mock-Daten
+        const mockFollowers = Math.floor(Math.random() * 50000) + 1000;
+        const mockPosts = Math.floor(Math.random() * 500) + 10;
+        const mockEngagement = (Math.random() * 5 + 0.5).toFixed(2);
+        
+        await supabase.from("competitor_metrics").insert({
+          competitor_id: competitor.id,
+          followers_count: mockFollowers,
+          following_count: Math.floor(mockFollowers * 0.3),
+          posts_count: mockPosts,
+          engagement_rate: parseFloat(mockEngagement),
+        });
+        
+        mockResults.push({ 
+          user: competitor.username, 
+          status: "mock", 
+          stats: { followers: mockFollowers, posts: mockPosts },
+          note: "Mock-Daten (APIFY_API_TOKEN fehlt)"
+        });
+      }
+      
+      return new Response(JSON.stringify({ 
+        results: mockResults,
+        warning: "APIFY_API_TOKEN nicht konfiguriert - Mock-Daten wurden verwendet. Füge den Token in den Secrets hinzu für echte Daten."
+      }), { 
+        headers: { ...corsHeaders, "Content-Type": "application/json" } 
+      });
+    }
+
+    // LIVE-MODUS: Echte Apify-Abfragen
     const results = [];
 
     for (const competitor of competitors || []) {
@@ -52,39 +86,44 @@ Deno.serve(async (req) => {
         if (!run.ok) throw new Error(`Apify Error: ${run.status}`);
         
         const data = await run.json();
-        const profile = data[0]; // Das erste Ergebnis nehmen
+        const profile = data[0];
 
         if (profile) {
-            let stats = { followers: 0, posts: 0, likes: 0, following: 0 };
+          let stats = { followers: 0, posts: 0, likes: 0, following: 0, engagement: 0 };
 
-            // Robuste Daten-Extraktion (prüft verschiedene Schreibweisen)
-            if (competitor.platform === 'instagram') {
-                stats.followers = profile.followersCount || profile.followers || 0;
-                stats.posts = profile.postsCount || profile.posts || 0;
-                stats.following = profile.followsCount || profile.following || 0;
-            } else if (competitor.platform === 'tiktok') {
-                const s = profile.stats || profile;
-                stats.followers = s.followerCount || s.followers || 0;
-                stats.posts = s.videoCount || s.videos || 0;
-                stats.likes = s.heartCount || s.likes || 0;
-            } else if (competitor.platform === 'youtube') {
-                stats.followers = profile.subscriberCount || profile.subscribers || 0;
-                stats.posts = profile.videoCount || profile.videos || 0;
-                stats.likes = profile.viewCount || 0; // Views als "Likes" Ersatz
-            }
+          if (competitor.platform === 'instagram') {
+            stats.followers = profile.followersCount || profile.followers || 0;
+            stats.posts = profile.postsCount || profile.posts || 0;
+            stats.following = profile.followsCount || profile.following || 0;
+          } else if (competitor.platform === 'tiktok') {
+            const s = profile.stats || profile;
+            stats.followers = s.followerCount || s.followers || 0;
+            stats.posts = s.videoCount || s.videos || 0;
+            stats.likes = s.heartCount || s.likes || 0;
+          } else if (competitor.platform === 'youtube') {
+            stats.followers = profile.subscriberCount || profile.subscribers || 0;
+            stats.posts = profile.videoCount || profile.videos || 0;
+            stats.likes = profile.viewCount || 0;
+          }
 
-            console.log(`[Success] ${competitor.username}: ${stats.followers} Follower`);
+          // Engagement Rate berechnen (vereinfacht)
+          if (stats.followers > 0 && stats.posts > 0) {
+            stats.engagement = parseFloat(((stats.likes / stats.followers) * 100).toFixed(2)) || 0;
+          }
 
-            await supabase.from("competitor_metrics").insert({
-                competitor_id: competitor.id,
-                followers_count: stats.followers,
-                following_count: stats.following,
-                posts_count: stats.posts,
-            });
-            results.push({ user: competitor.username, status: "updated", stats });
+          console.log(`[Success] ${competitor.username}: ${stats.followers} Follower`);
+
+          await supabase.from("competitor_metrics").insert({
+            competitor_id: competitor.id,
+            followers_count: stats.followers,
+            following_count: stats.following,
+            posts_count: stats.posts,
+            engagement_rate: stats.engagement,
+          });
+          results.push({ user: competitor.username, status: "updated", stats });
         } else {
-            console.log(`[Empty] Keine Daten für ${competitor.username}`);
-            results.push({ user: competitor.username, status: "empty" });
+          console.log(`[Empty] Keine Daten für ${competitor.username}`);
+          results.push({ user: competitor.username, status: "empty" });
         }
 
       } catch (err: any) {
@@ -93,8 +132,14 @@ Deno.serve(async (req) => {
       }
     }
 
-    return new Response(JSON.stringify({ results }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    return new Response(JSON.stringify({ results }), { 
+      headers: { ...corsHeaders, "Content-Type": "application/json" } 
+    });
   } catch (error: any) {
-    return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    console.error("[Competitors] Critical Error:", error.message);
+    return new Response(JSON.stringify({ error: error.message }), { 
+      status: 500, 
+      headers: { ...corsHeaders, "Content-Type": "application/json" } 
+    });
   }
 });

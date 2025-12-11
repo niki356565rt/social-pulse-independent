@@ -119,12 +119,12 @@ function ConnectPlatformCard({
         </div>
         <div>
           <h3 className="font-semibold text-lg">{config.name}</h3>
-          <p className="text-sm text-muted-foreground italic">Nicht verbunden</p>
+          <p className="text-sm text-muted-foreground italic">Account hinzufügen</p>
         </div>
       </div>
 
       <Button variant="outline" size="sm" onClick={onConnect} disabled={disabled}>
-        {disabled ? <Lock className="w-4 h-4 mr-1" /> : null}
+        {disabled ? <Lock className="w-4 h-4 mr-1" /> : <Plus className="w-4 h-4 mr-1" />}
         Verbinden
       </Button>
     </div>
@@ -177,11 +177,6 @@ const Accounts = () => {
     }
   }, [searchParams, setSearchParams, handleOAuthCallback]);
 
-  const connectedPlatforms = accounts.map((a) => a.platform);
-  const disconnectedPlatforms = availablePlatforms.filter(
-    (p) => !connectedPlatforms.includes(p)
-  );
-
   return (
     <DashboardLayout>
       <div className="p-8">
@@ -226,15 +221,22 @@ const Accounts = () => {
                 />
               ))}
 
-              {/* Disconnected platforms */}
-              {disconnectedPlatforms.map((platform) => (
-                <ConnectPlatformCard
-                  key={platform}
-                  platform={platform}
-                  onConnect={() => connectAccount(platform)}
-                  disabled={!canAddMoreAccounts}
-                />
-              ))}
+              {/* Alle Plattformen als "Hinzufügen"-Option - Multi-Account Support */}
+              <div className="pt-4 border-t border-border">
+                <h3 className="text-sm font-medium text-muted-foreground mb-3">
+                  Weitere Accounts verbinden
+                </h3>
+                <div className="space-y-3">
+                  {availablePlatforms.map((platform) => (
+                    <ConnectPlatformCard
+                      key={`connect-${platform}`}
+                      platform={platform}
+                      onConnect={() => connectAccount(platform)}
+                      disabled={!canAddMoreAccounts}
+                    />
+                  ))}
+                </div>
+              </div>
 
               {/* Account limit info */}
               {!canAddMoreAccounts && (

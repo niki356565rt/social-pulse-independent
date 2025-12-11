@@ -1,4 +1,3 @@
-# ÄNDERUNG: Hier Ihre NEUE Projekt-ID eintragen (cljgmmwjgwmbokukxaqz)
 project_id = "cljgmmwjgwmbokukxaqz"
 
 [functions.social-auth]
@@ -31,5 +30,11 @@ verify_jwt = false
 [functions.publish-tiktok]
 verify_jwt = false
 
+[functions.publish-youtube]
+verify_jwt = false
+
 [functions.suggest-hashtags]
+verify_jwt = false
+
+[functions.fetch-competitor-metrics]
 verify_jwt = false

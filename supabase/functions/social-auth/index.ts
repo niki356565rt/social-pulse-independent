@@ -188,10 +188,48 @@ Deno.serve(async (req) => {
       }
       
       // YOUTUBE (bleibt gleich, der Kürze halber hier nur der Upsert)
+      // YOUTUBE
       else if (platform === "youtube") {
-         // ... (YouTube Code von vorhin hier einfügen falls nötig, oder oben lassen wenn er funktioniert)
-         // Der Logik halber gehen wir davon aus, dass YT funktioniert.
-         throw new Error("YouTube Code nicht im Debug-Snippet enthalten (siehe vorherigen Code)");
+        if (!YOUTUBE_CLIENT_ID || !YOUTUBE_CLIENT_SECRET) throw new Error("YouTube Secrets fehlen.");
+
+        console.log("[DEBUG] Exchanging YouTube Token...");
+        const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: new URLSearchParams({
+            client_id: YOUTUBE_CLIENT_ID,
+            client_secret: YOUTUBE_CLIENT_SECRET,
+            code,
+            grant_type: "authorization_code",
+            redirect_uri: redirectUri,
+          }),
+        });
+
+        const tokenData = await tokenRes.json();
+        if (tokenData.error) {
+           console.error("[ERROR] YouTube Token Error:", tokenData);
+           throw new Error("YouTube Token Error: " + (tokenData.error_description || tokenData.error));
+        }
+
+        console.log("[DEBUG] Fetching YouTube Channel Info...");
+        const channelRes = await fetch("https://www.googleapis.com/youtube/v3/channels?part=snippet,statistics&mine=true", {
+          headers: { Authorization: `Bearer ${tokenData.access_token}` },
+        });
+        
+        const channelData = await channelRes.json();
+        if (!channelData.items || channelData.items.length === 0) {
+           throw new Error("Kein YouTube-Kanal gefunden.");
+        }
+
+        const channel = channelData.items[0];
+
+        userData = {
+          platform_user_id: channel.id,
+          username: channel.snippet.title, // Kanalname
+          access_token: tokenData.access_token,
+          refresh_token: tokenData.refresh_token, // Wichtig für spätere Updates
+          expires_in: tokenData.expires_in
+        };
       }
 
       if (userData) {
@@ -203,7 +241,7 @@ Deno.serve(async (req) => {
             username: userData.username,
             access_token: userData.access_token,
             refresh_token: userData.refresh_token,
-        }, { onConflict: "user_id,platform" });
+      }, { onConflict: "user_id,platform,platform_user_id" });
 
         if (dbError) {
              console.error("[ERROR] DB Upsert failed:", dbError);

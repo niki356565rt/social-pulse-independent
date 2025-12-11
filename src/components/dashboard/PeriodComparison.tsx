@@ -63,12 +63,16 @@ function ComparisonRow({ label, icon, currentValue, previousValue, changePercent
   );
 }
 
-export function PeriodComparison() {
-  const { comparison, loading, periodType, fetchComparison } = usePeriodComparison();
+interface PeriodComparisonProps {
+  selectedAccountId?: string;
+}
+
+export function PeriodComparison({ selectedAccountId }: PeriodComparisonProps) {
+  const { comparison, loading, periodType, fetchComparison } = usePeriodComparison(selectedAccountId);
 
   useEffect(() => {
     fetchComparison("week");
-  }, []);
+  }, [selectedAccountId]);
 
   const handlePeriodChange = (type: PeriodType) => {
     fetchComparison(type);

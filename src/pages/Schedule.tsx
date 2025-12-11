@@ -82,6 +82,7 @@ const Schedule = () => {
     platform: '' as 'instagram' | 'tiktok' | 'youtube' | '',
     title: '', // NEU für YouTube
     content: '',
+    hashtags: [] as string[], // NEU: Hashtag-Array
     media_urls: [] as string[],
     media_type: 'image' as 'image' | 'video' | 'carousel' | 'reels',
     scheduled_date: undefined as Date | undefined,
@@ -127,10 +128,14 @@ const Schedule = () => {
     const [hours, minutes] = formData.scheduled_time.split(':').map(Number);
     scheduledFor.setHours(hours, minutes, 0, 0);
 
-    // YouTube Titel in den Content integrieren
+    // YouTube Titel in den Content integrieren + Hashtags anhängen
     let finalContent = formData.content;
     if (formData.platform === 'youtube') {
       finalContent = `TITLE: ${formData.title}\n${formData.content}`;
+    }
+    // Hashtags anhängen (wenn vorhanden)
+    if (formData.hashtags.length > 0) {
+      finalContent += '\n\n' + formData.hashtags.map(h => `#${h}`).join(' ');
     }
 
     const result = await createPost({
@@ -158,6 +163,7 @@ const Schedule = () => {
       platform: '',
       title: '',
       content: '',
+      hashtags: [],
       media_urls: [],
       media_type: 'image',
       scheduled_date: undefined,
@@ -250,6 +256,19 @@ const Schedule = () => {
                       </div>
 
                       <div>
+                        <label className="text-sm font-medium mb-2 block">Hashtags</label>
+                        <Input 
+                          value={formData.hashtags.join(' ')} 
+                          onChange={(e) => setFormData(prev => ({ 
+                            ...prev, 
+                            hashtags: e.target.value.split(' ').filter(h => h.trim()).map(h => h.replace('#', ''))
+                          }))} 
+                          placeholder="#hashtag1 #hashtag2 #hashtag3"
+                        />
+                        <p className="text-xs text-muted-foreground mt-1">Mit Leerzeichen getrennt</p>
+                      </div>
+
+                      <div>
                         <label className="text-sm font-medium mb-2 block">Medien</label>
                         <MediaUpload
                           onUpload={(urls) => setFormData(prev => ({ ...prev, media_urls: [...prev.media_urls, ...urls] }))}
@@ -307,7 +326,7 @@ const Schedule = () => {
                       <PostPreviewTabs
                         platform={formData.platform as any}
                         username={selectedAccount?.username || 'username'}
-                        content={formData.content}
+                        content={formData.content + (formData.hashtags.length > 0 ? '\n\n' + formData.hashtags.map(h => `#${h}`).join(' ') : '')}
                         mediaUrls={formData.media_urls}
                         mediaType={formData.media_type}
                       />

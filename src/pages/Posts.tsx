@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useTopPosts, Post } from "@/hooks/useTopPosts";
+import { useSocialAccounts } from "@/hooks/useSocialAccounts";
 import { BestPostingTimesWidget } from "@/components/dashboard/BestPostingTimesWidget";
 import { 
   Search, 
@@ -26,7 +27,7 @@ import {
   Calendar,
   TrendingUp,
   TrendingDown,
-  ExternalLink
+  User
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -161,7 +162,9 @@ function PostCard({ post }: PostCardProps) {
 }
 
 const Posts = () => {
-  const { allPosts, loading } = useTopPosts();
+  const { accounts } = useSocialAccounts();
+  const [selectedAccountId, setSelectedAccountId] = useState<string>("all");
+  const { allPosts, loading } = useTopPosts(selectedAccountId);
   const [platformFilter, setPlatformFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [sortField, setSortField] = useState<SortField>("engagement_rate");
@@ -242,6 +245,24 @@ const Posts = () => {
 
         {/* Filters */}
         <div className="flex flex-col sm:flex-row gap-4 mb-6">
+          {/* Account Filter - NEU */}
+          <Select value={selectedAccountId} onValueChange={setSelectedAccountId}>
+            <SelectTrigger className="w-full sm:w-[200px]">
+              <User className="w-4 h-4 mr-2" />
+              <SelectValue placeholder="Account wählen" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Alle Accounts</SelectItem>
+              {accounts.map(acc => (
+                <SelectItem key={acc.id} value={acc.id}>
+                  <span className="flex items-center gap-2">
+                    {acc.platform === 'instagram' ? '📸' : acc.platform === 'youtube' ? '📺' : '🎵'} @{acc.username}
+                  </span>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
           {/* Search */}
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />

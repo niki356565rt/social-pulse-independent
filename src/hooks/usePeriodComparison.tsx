@@ -41,7 +41,7 @@ const defaultMetrics: PeriodMetrics = {
   postsCount: 0,
 };
 
-export function usePeriodComparison() {
+export function usePeriodComparison(selectedAccountId?: string) {
   const { user } = useAuth();
   const [comparison, setComparison] = useState<PeriodComparison | null>(null);
   const [loading, setLoading] = useState(false);
@@ -93,7 +93,11 @@ export function usePeriodComparison() {
         return;
       }
 
-      const accountIds = accounts.map(a => a.id);
+      // Filter nach selectedAccountId wenn gesetzt
+      let accountIds = accounts.map(a => a.id);
+      if (selectedAccountId && selectedAccountId !== "all") {
+        accountIds = accountIds.filter(id => id === selectedAccountId);
+      }
 
       // Fetch metrics for current period
       const { data: currentData } = await supabase
@@ -180,7 +184,7 @@ export function usePeriodComparison() {
     } finally {
       setLoading(false);
     }
-  }, [user, periodType]);
+  }, [user, periodType, selectedAccountId]);
 
   return {
     comparison,

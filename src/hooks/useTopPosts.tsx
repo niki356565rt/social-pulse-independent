@@ -18,7 +18,7 @@ export interface Post {
   username?: string;
 }
 
-export function useTopPosts() {
+export function useTopPosts(selectedAccountId?: string) {
   const { user } = useAuth();
   const [allPosts, setAllPosts] = useState<Post[]>([]);
   const [topPosts, setTopPosts] = useState<Post[]>([]);
@@ -47,14 +47,19 @@ export function useTopPosts() {
         return;
       }
 
-      const accountIds = accounts.map(a => a.id);
+      // Filter accounts basierend auf selectedAccountId
+      let filteredAccountIds = accounts.map(a => a.id);
+      if (selectedAccountId && selectedAccountId !== "all") {
+        filteredAccountIds = filteredAccountIds.filter(id => id === selectedAccountId);
+      }
+
       const accountMap = Object.fromEntries(accounts.map(a => [a.id, a]));
 
       // Fetch all posts for user's accounts
       const { data: posts, error: postsError } = await supabase
         .from("posts")
         .select("*")
-        .in("account_id", accountIds)
+        .in("account_id", filteredAccountIds)
         .order("engagement_rate", { ascending: false, nullsFirst: false });
 
       if (postsError) throw postsError;
@@ -83,7 +88,7 @@ export function useTopPosts() {
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [user, selectedAccountId]);
 
   useEffect(() => {
     fetchPosts();

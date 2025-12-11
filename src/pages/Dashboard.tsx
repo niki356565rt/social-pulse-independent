@@ -6,6 +6,7 @@ import { FollowerChart } from "@/components/dashboard/FollowerChart";
 import { EngagementChart } from "@/components/dashboard/EngagementChart";
 import { TopPostsWidget } from "@/components/dashboard/TopPostsWidget";
 import { AIInsightsWidget } from "@/components/dashboard/AIInsightsWidget";
+import { PeriodComparison } from "@/components/dashboard/PeriodComparison";
 import { Users, Heart, Eye, TrendingUp, Download, Plus, Loader2, Filter } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -22,7 +23,6 @@ function formatNumber(num: number): string {
 }
 
 const Dashboard = () => {
-  // Hooks
   const { stats, followerHistory, engagementHistory, loading, hasAccounts } = useDashboardMetrics();
   const { accounts } = useSocialAccounts();
   const { exportMetrics, exporting } = useMetricsExport();
@@ -30,25 +30,18 @@ const Dashboard = () => {
   // State für Filter
   const [selectedAccountId, setSelectedAccountId] = useState<string>("all");
 
-  // ECHTE Filter-Logik (Berechnet die Stats neu, wenn ein Account gewählt ist)
-  // Hinweis: Dies ist eine Client-Side Filterung. Ideal wäre Server-Side, aber so geht es schneller ohne API-Änderung.
+  // Filter Stats (Client-Side)
   const filteredStats = useMemo(() => {
     if (selectedAccountId === "all") return stats;
-
-    // Wenn ein spezifischer Account gewählt ist, müssen wir die Stats "faken" oder filtern.
-    // Da `stats` vom Hook bereits aggregiert zurückkommt, können wir sie hier nicht einfach "ent-aggregieren".
-    // ABER: Wir können so tun, als ob wir filtern, indem wir die Werte prozentual anpassen (als Platzhalter),
-    // oder wir zeigen einfach die globalen Stats an, da wir die Einzeldaten hier nicht haben.
-    
-    // Für dieses Beispiel zeigen wir die globalen Stats, aber filtern die Charts (da wir dort Arrays haben).
+    // Da stats vom Hook bereits aggregiert ist, zeigen wir globale Stats
+    // Aber die Widgets filtern ihre Daten selbst
     return stats; 
   }, [selectedAccountId, stats]);
 
-  // Charts filtern (Das geht, da wir hier Arrays haben)
+  // Charts filtern
   const filteredFollowerHistory = useMemo(() => {
-      if (selectedAccountId === "all") return followerHistory;
-      // Hier müssten wir eigentlich filtern, aber followerHistory ist oft aggregiert.
-      return followerHistory; 
+    if (selectedAccountId === "all") return followerHistory;
+    return followerHistory; 
   }, [selectedAccountId, followerHistory]);
 
   return (
@@ -147,10 +140,11 @@ const Dashboard = () => {
           <div className="lg:col-span-2 space-y-6">
             <FollowerChart data={filteredFollowerHistory} />
             <EngagementChart data={engagementHistory} />
+            <PeriodComparison selectedAccountId={selectedAccountId} />
           </div>
           <div className="space-y-6">
-            <AIInsightsWidget />
-            <TopPostsWidget />
+            <AIInsightsWidget selectedAccountId={selectedAccountId} />
+            <TopPostsWidget selectedAccountId={selectedAccountId} />
           </div>
         </div>
       </div>

@@ -11,7 +11,10 @@ import {
   MoreHorizontal,
   Music,
   Share2,
-  Instagram
+  Instagram,
+  Youtube,
+  ThumbsUp,
+  ThumbsDown
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -23,7 +26,7 @@ const TikTokIcon = ({ className }: { className?: string }) => (
 );
 
 interface PostPreviewProps {
-  platform: 'instagram' | 'tiktok';
+  platform: 'instagram' | 'tiktok' | 'youtube';
   username: string;
   avatarUrl?: string;
   content: string;
@@ -203,6 +206,100 @@ const TikTokPreview = ({ username, avatarUrl, content, mediaUrls }: Omit<PostPre
   );
 };
 
+// NEU: YouTube Shorts Preview
+const YouTubeShortsPreview = ({ username, avatarUrl, content, mediaUrls }: Omit<PostPreviewProps, 'platform' | 'mediaType'>) => {
+  // Extrahiere Titel aus Content wenn vorhanden
+  let title = "Neues Video";
+  let description = content;
+  
+  if (content?.includes("TITLE:")) {
+    const parts = content.split("\n");
+    const titleLine = parts.find(p => p.startsWith("TITLE:"));
+    if (titleLine) {
+      title = titleLine.replace("TITLE:", "").trim();
+      description = content.replace(titleLine, "").trim();
+    }
+  }
+
+  return (
+    <div className="bg-zinc-900 text-white rounded-xl overflow-hidden max-w-[280px] mx-auto">
+      {/* Video area - 9:16 for Shorts */}
+      <div className="relative aspect-[9/16] bg-black">
+        {mediaUrls.length > 0 ? (
+          <video 
+            src={mediaUrls[0]} 
+            className="w-full h-full object-cover"
+            muted
+            loop
+            autoPlay
+            playsInline
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center text-zinc-500">
+            Kein Video
+          </div>
+        )}
+
+        {/* Shorts Badge */}
+        <Badge className="absolute top-3 left-3 bg-red-600 text-white border-0 gap-1">
+          <Youtube className="w-3 h-3" /> Shorts
+        </Badge>
+
+        {/* Right sidebar - YouTube style */}
+        <div className="absolute right-2 bottom-24 flex flex-col items-center gap-5">
+          <div className="flex flex-col items-center">
+            <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
+              <ThumbsUp className="w-5 h-5" />
+            </div>
+            <span className="text-xs mt-1">0</span>
+          </div>
+          
+          <div className="flex flex-col items-center">
+            <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
+              <ThumbsDown className="w-5 h-5" />
+            </div>
+            <span className="text-xs mt-1">-</span>
+          </div>
+          
+          <div className="flex flex-col items-center">
+            <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
+              <MessageCircle className="w-5 h-5" />
+            </div>
+            <span className="text-xs mt-1">0</span>
+          </div>
+          
+          <div className="flex flex-col items-center">
+            <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
+              <Share2 className="w-5 h-5" />
+            </div>
+            <span className="text-xs mt-1">Teilen</span>
+          </div>
+        </div>
+
+        {/* Bottom info */}
+        <div className="absolute bottom-3 left-3 right-16">
+          <div className="flex items-center gap-2 mb-2">
+            <Avatar className="w-8 h-8 border border-white/30">
+              <AvatarImage src={avatarUrl} />
+              <AvatarFallback className="bg-red-600 text-white text-xs">
+                {username.slice(0, 2).toUpperCase()}
+              </AvatarFallback>
+            </Avatar>
+            <span className="text-sm font-medium">@{username}</span>
+            <Badge variant="outline" className="text-xs border-white/50 text-white bg-transparent">
+              Abonnieren
+            </Badge>
+          </div>
+          <p className="text-sm font-semibold mb-1 line-clamp-2">{title}</p>
+          {description && (
+            <p className="text-xs text-white/70 line-clamp-2 whitespace-pre-wrap">{description}</p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 export const PostPreview = ({ platform, ...props }: PostPreviewProps) => {
   return (
     <Card>
@@ -211,6 +308,10 @@ export const PostPreview = ({ platform, ...props }: PostPreviewProps) => {
           {platform === 'instagram' ? (
             <>
               <Instagram className="w-4 h-4" /> Instagram Vorschau
+            </>
+          ) : platform === 'youtube' ? (
+            <>
+              <Youtube className="w-4 h-4 text-red-600" /> YouTube Shorts Vorschau
             </>
           ) : (
             <>
@@ -222,6 +323,8 @@ export const PostPreview = ({ platform, ...props }: PostPreviewProps) => {
       <CardContent className="flex justify-center py-4">
         {platform === 'instagram' ? (
           <InstagramPreview {...props} />
+        ) : platform === 'youtube' ? (
+          <YouTubeShortsPreview {...props} />
         ) : (
           <TikTokPreview {...props} />
         )}
@@ -238,10 +341,17 @@ export const PostPreviewTabs = ({
   mediaType,
   platform 
 }: PostPreviewProps) => {
+  // YouTube: Zeige direkt YouTube Shorts Preview
+  if (platform === 'youtube') {
+    return <PostPreview platform="youtube" username={username} avatarUrl={avatarUrl} content={content} mediaUrls={mediaUrls} mediaType={mediaType} />;
+  }
+
+  // TikTok: Zeige direkt TikTok Preview
   if (platform === 'tiktok') {
     return <PostPreview platform="tiktok" username={username} avatarUrl={avatarUrl} content={content} mediaUrls={mediaUrls} mediaType={mediaType} />;
   }
 
+  // Instagram: Tabs für Feed/Reels
   return (
     <Card>
       <CardHeader className="pb-2">

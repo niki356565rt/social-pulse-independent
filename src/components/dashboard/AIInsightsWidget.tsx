@@ -9,7 +9,11 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 
-export const AIInsightsWidget = () => {
+interface AIInsightsWidgetProps {
+  selectedAccountId?: string;
+}
+
+export const AIInsightsWidget = ({ selectedAccountId }: AIInsightsWidgetProps) => {
   const { plan, canAccess } = useSubscription();
   const { session } = useAuth();
   const navigate = useNavigate();
@@ -31,6 +35,7 @@ export const AIInsightsWidget = () => {
         headers: {
           Authorization: `Bearer ${session.access_token}`,
         },
+        body: { accountId: selectedAccountId !== 'all' ? selectedAccountId : undefined }
       });
 
       if (error) throw error;

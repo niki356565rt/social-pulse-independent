@@ -45,7 +45,7 @@ Deno.serve(async (req) => {
     if (post.content?.includes("TITLE:")) {
         const parts = post.content.split("\n");
         // Suche die Zeile mit TITLE:
-        const titleLine = parts.find(p => p.startsWith("TITLE:"));
+        const titleLine = parts.find((p: string) => p.startsWith("TITLE:"));
         if (titleLine) {
             title = titleLine.replace("TITLE:", "").trim();
             // Der Rest ist Beschreibung

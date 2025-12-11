@@ -23,7 +23,7 @@ const platformIcons: Record<string, typeof Instagram> = {
 
 const Competitors = () => {
   const { canAccess } = useSubscription();
-  const { competitors, loading, addCompetitor, removeCompetitor, refreshCompetitors } = useCompetitors(); // refreshCompetitors angenommen, sonst reload
+  const { competitors, loading, addCompetitor, removeCompetitor, refetch } = useCompetitors();
   const { stats } = useDashboardMetrics();
   const navigate = useNavigate();
   
@@ -47,12 +47,8 @@ const Competitors = () => {
       if (error) throw error;
       
       toast.success('Wettbewerber-Daten aktualisiert!');
-      // Wenn der Hook eine refresh-Methode hat, rufen wir sie auf, sonst Page reload
-      if (refreshCompetitors) {
-        await refreshCompetitors();
-      } else {
-        window.location.reload();
-      }
+      // Daten neu laden
+      await refetch();
     } catch (error: any) {
       console.error('Refresh error:', error);
       toast.error('Fehler beim Aktualisieren: ' + error.message);
