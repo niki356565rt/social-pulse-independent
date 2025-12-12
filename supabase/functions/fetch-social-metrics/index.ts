@@ -43,7 +43,9 @@ async function fetchInstagramMetrics(accessToken: string, platformUserId: string
   console.log("Instagram metrics response:", JSON.stringify(data));
 
   if (data.error) {
-    throw new Error(data.error.message);
+    const errorMsg = data.error.message || "Instagram API error";
+    const errorType = data.error.type || "";
+    throw new Error(`Instagram: ${errorMsg}${errorType ? ` (${errorType})` : ''}`);
   }
 
   // Get recent media with full details
@@ -111,6 +113,11 @@ async function fetchTikTokMetrics(accessToken: string): Promise<{ metrics: Socia
   );
   const userData = await userResponse.json();
   console.log("TikTok user response:", JSON.stringify(userData));
+
+  // Check for TikTok API errors (e.g., expired token)
+  if (userData.error?.code || userData.error?.message) {
+    throw new Error(`TikTok API Error: ${userData.error.message || userData.error.code}`);
+  }
 
   const user = userData.data?.user || {};
 

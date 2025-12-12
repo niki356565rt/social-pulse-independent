@@ -37,7 +37,7 @@ const defaultStats: DashboardStats = {
   reachChange: 0,
 };
 
-export function useDashboardMetrics() {
+export function useDashboardMetrics(selectedAccountId?: string) {
   const { user } = useAuth();
   const [stats, setStats] = useState<DashboardStats>(defaultStats);
   const [followerHistory, setFollowerHistory] = useState<FollowerHistoryItem[]>([]);
@@ -51,12 +51,32 @@ export function useDashboardMetrics() {
       return;
     }
 
+    // Wait for account selection if none provided
+    if (!selectedAccountId) {
+      // Still check if accounts exist
+      const { data: allAccounts } = await supabase
+        .from("connected_accounts")
+        .select("id")
+        .eq("user_id", user.id)
+        .limit(1);
+      
+      setHasAccounts((allAccounts?.length || 0) > 0);
+      setStats(defaultStats);
+      setFollowerHistory([]);
+      setEngagementHistory([]);
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+
     try {
-      // Fetch connected accounts
+      // Fetch connected accounts - filter by selectedAccountId
       const { data: accounts, error: accountsError } = await supabase
         .from("connected_accounts")
         .select("id, platform")
-        .eq("user_id", user.id);
+        .eq("user_id", user.id)
+        .eq("id", selectedAccountId);
 
       if (accountsError) throw accountsError;
 
@@ -124,17 +144,20 @@ export function useDashboardMetrics() {
       const followerByDay: Record<string, FollowerHistoryItem> = {};
       const days = ["1", "5", "10", "15", "20", "25", "30"];
       
-      // Initialize with zeros
+      // Initialize with null to track missing data
       days.forEach((day) => {
         followerByDay[day] = { day, instagram: 0, tiktok: 0, youtube: 0 };
       });
 
       // Group metrics by approximate day and platform
+      const rawData: Record<string, Partial<Record<'instagram' | 'tiktok' | 'youtube', number>>> = {};
+      days.forEach((day) => { rawData[day] = {}; });
+
       if (historyData) {
         historyData.forEach((metric: any) => {
           const date = new Date(metric.recorded_at);
           const dayOfMonth = date.getDate();
-          const platform = metric.connected_accounts?.platform;
+          const platform = metric.connected_accounts?.platform as 'instagram' | 'tiktok' | 'youtube';
           
           // Map to nearest chart point
           let chartDay = "30";
@@ -145,45 +168,73 @@ export function useDashboardMetrics() {
           else if (dayOfMonth <= 22) chartDay = "20";
           else if (dayOfMonth <= 27) chartDay = "25";
 
-          if (platform && followerByDay[chartDay]) {
-            followerByDay[chartDay][platform as keyof Omit<FollowerHistoryItem, "day">] = 
-              metric.followers_count || 0;
+          if (platform && rawData[chartDay] !== undefined) {
+            rawData[chartDay][platform] = metric.followers_count || 0;
           }
         });
       }
 
-      // Fill in current values for latest point
-      if (latestMetrics.instagram) followerByDay["30"].instagram = latestMetrics.instagram.followers_count || 0;
-      if (latestMetrics.tiktok) followerByDay["30"].tiktok = latestMetrics.tiktok.followers_count || 0;
-      if (latestMetrics.youtube) followerByDay["30"].youtube = latestMetrics.youtube.followers_count || 0;
+      // Fill in current values for latest point from latestMetrics
+      if (latestMetrics.instagram) rawData["30"].instagram = latestMetrics.instagram.followers_count || 0;
+      if (latestMetrics.tiktok) rawData["30"].tiktok = latestMetrics.tiktok.followers_count || 0;
+      if (latestMetrics.youtube) rawData["30"].youtube = latestMetrics.youtube.followers_count || 0;
+
+      // Apply carry-forward logic for each platform
+      const platforms: ('instagram' | 'tiktok' | 'youtube')[] = ['instagram', 'tiktok', 'youtube'];
+      
+      platforms.forEach((platform) => {
+        // First pass: find first available value and carry forward
+        let lastKnownValue = 0;
+        
+        // Find first available value for backfill
+        for (const day of days) {
+          if (rawData[day][platform] !== undefined) {
+            lastKnownValue = rawData[day][platform]!;
+            break;
+          }
+        }
+        
+        // Apply carry-forward: go through days and fill gaps
+        let currentValue = lastKnownValue; // Start with first known value for backfill
+        for (const day of days) {
+          if (rawData[day][platform] !== undefined) {
+            currentValue = rawData[day][platform]!;
+          }
+          followerByDay[day][platform] = currentValue;
+        }
+      });
 
       // Calculate engagement history (simulate weekly data from latest)
       const weekDays = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"];
-      const engagementData: EngagementHistoryItem[] = weekDays.map((name, i) => ({
+      const engagementData: EngagementHistoryItem[] = weekDays.map((name) => ({
         name,
         likes: Math.round((totalLikes / 7) * (0.7 + Math.random() * 0.6)),
         comments: Math.round((totalComments / 7) * (0.7 + Math.random() * 0.6)),
       }));
 
-      setStats({
+      // Check if we have any real data
+      const hasData = Object.keys(latestMetrics).length > 0;
+
+      setStats(hasData ? {
         totalFollowers,
-        followerChange: 12.5, // Would need historical data to calculate real change
+        followerChange: 12.5,
         engagementRate: Math.round(avgEngagement * 100) / 100,
         engagementChange: 2.3,
         totalImpressions: totalViews || Math.round(totalFollowers * 3.5),
         impressionsChange: -3.2,
         totalReach: Math.round(totalFollowers * 2.5),
         reachChange: 8.7,
-      });
+      } : defaultStats);
 
       setFollowerHistory(Object.values(followerByDay));
       setEngagementHistory(engagementData);
     } catch (error) {
       console.error("Error fetching dashboard metrics:", error);
+      setStats(defaultStats);
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [user, selectedAccountId]);
 
   useEffect(() => {
     fetchMetrics();

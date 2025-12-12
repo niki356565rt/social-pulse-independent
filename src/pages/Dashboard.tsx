@@ -7,13 +7,14 @@ import { EngagementChart } from "@/components/dashboard/EngagementChart";
 import { TopPostsWidget } from "@/components/dashboard/TopPostsWidget";
 import { AIInsightsWidget } from "@/components/dashboard/AIInsightsWidget";
 import { PeriodComparison } from "@/components/dashboard/PeriodComparison";
-import { Users, Heart, Eye, TrendingUp, Download, Plus, Loader2, Filter } from "lucide-react";
+import { Users, Heart, Eye, TrendingUp, Download, Plus, Loader2, Filter, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useDashboardMetrics } from "@/hooks/useDashboardMetrics";
 import { useSocialAccounts } from "@/hooks/useSocialAccounts";
 import { useMetricsExport } from "@/hooks/useMetricsExport";
 import { Skeleton } from "@/components/ui/skeleton";
+import { toast } from "sonner";
 
 function formatNumber(num: number): string {
   if (!num) return "0";
@@ -23,26 +24,49 @@ function formatNumber(num: number): string {
 }
 
 const Dashboard = () => {
-  const { stats, followerHistory, engagementHistory, loading, hasAccounts } = useDashboardMetrics();
-  const { accounts } = useSocialAccounts();
+  const { accounts, loading: accountsLoading } = useSocialAccounts();
+  
+  // State für Filter - kein "all" mehr, direkt den ersten Account wählen
+  const [selectedAccountId, setSelectedAccountId] = useState<string>("");
+  const [refreshing, setRefreshing] = useState(false);
+
+  // Auto-select first account when accounts are loaded
+  useState(() => {
+    if (accounts.length > 0 && !selectedAccountId) {
+      setSelectedAccountId(accounts[0].id);
+    }
+  });
+  
+  // Effect to set first account when accounts load
+  if (accounts.length > 0 && !selectedAccountId) {
+    setSelectedAccountId(accounts[0].id);
+  }
+
+  // Pass selectedAccountId to the hook for proper filtering
+  const { stats, followerHistory, engagementHistory, loading, hasAccounts, refetch } = useDashboardMetrics(selectedAccountId);
   const { exportMetrics, exporting } = useMetricsExport();
 
-  // State für Filter
-  const [selectedAccountId, setSelectedAccountId] = useState<string>("all");
+  // Handle refresh
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await refetch();
+    setRefreshing(false);
+    toast.success("Daten aktualisiert");
+  };
 
-  // Filter Stats (Client-Side)
-  const filteredStats = useMemo(() => {
-    if (selectedAccountId === "all") return stats;
-    // Da stats vom Hook bereits aggregiert ist, zeigen wir globale Stats
-    // Aber die Widgets filtern ihre Daten selbst
-    return stats; 
-  }, [selectedAccountId, stats]);
-
-  // Charts filtern
+  // Charts filtern - immer nach gewähltem Account
   const filteredFollowerHistory = useMemo(() => {
-    if (selectedAccountId === "all") return followerHistory;
-    return followerHistory; 
-  }, [selectedAccountId, followerHistory]);
+    if (!selectedAccountId) return followerHistory;
+    const account = accounts.find(a => a.id === selectedAccountId);
+    if (!account) return followerHistory;
+    
+    return followerHistory.map(item => ({
+      ...item,
+      instagram: account.platform === 'instagram' ? item.instagram : 0,
+      tiktok: account.platform === 'tiktok' ? item.tiktok : 0,
+      youtube: account.platform === 'youtube' ? item.youtube : 0,
+    }));
+  }, [selectedAccountId, followerHistory, accounts]);
 
   return (
     <DashboardLayout>
@@ -55,15 +79,14 @@ const Dashboard = () => {
           </div>
           
           <div className="flex items-center gap-3">
-            {/* Account Filter */}
-            {hasAccounts && (
+            {/* Account Filter - ohne "Alle Accounts" */}
+            {hasAccounts && accounts.length > 0 && (
               <Select value={selectedAccountId} onValueChange={setSelectedAccountId}>
-                <SelectTrigger className="w-[180px]">
+                <SelectTrigger className="w-[200px]">
                   <Filter className="w-4 h-4 mr-2 text-muted-foreground"/>
                   <SelectValue placeholder="Account wählen" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">Alle Accounts</SelectItem>
                   {accounts.map(acc => (
                     <SelectItem key={acc.id} value={acc.id}>
                       {acc.platform === 'instagram' ? '📸' : acc.platform === 'youtube' ? '📺' : '🎵'} @{acc.username}
@@ -72,6 +95,17 @@ const Dashboard = () => {
                 </SelectContent>
               </Select>
             )}
+
+            {/* Refresh Button */}
+            <Button 
+              variant="outline" 
+              size="icon"
+              onClick={handleRefresh} 
+              disabled={refreshing || loading}
+              title="Daten aktualisieren"
+            >
+              <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+            </Button>
 
             <Button variant="outline" onClick={exportMetrics} disabled={exporting}>
               {exporting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Download className="w-4 h-4 mr-2" />}
@@ -101,32 +135,32 @@ const Dashboard = () => {
             <>
               <KPICard
                 title="Follower Gesamt"
-                value={formatNumber(filteredStats.totalFollowers)}
-                change={filteredStats.followerChange}
+                value={formatNumber(stats.totalFollowers)}
+                change={stats.followerChange}
                 changeLabel="vs. letzter Monat"
                 icon={Users}
                 color="cyan"
               />
               <KPICard
                 title="Engagement Rate"
-                value={`${filteredStats.engagementRate}%`}
-                change={filteredStats.engagementChange}
+                value={`${stats.engagementRate}%`}
+                change={stats.engagementChange}
                 changeLabel="vs. letzter Monat"
                 icon={Heart}
                 color="pink"
               />
               <KPICard
                 title="Impressions"
-                value={formatNumber(filteredStats.totalImpressions)}
-                change={filteredStats.impressionsChange}
+                value={formatNumber(stats.totalImpressions)}
+                change={stats.impressionsChange}
                 changeLabel="vs. letzter Monat"
                 icon={Eye}
                 color="purple"
               />
               <KPICard
                 title="Reichweite"
-                value={formatNumber(filteredStats.totalReach)}
-                change={filteredStats.reachChange}
+                value={formatNumber(stats.totalReach)}
+                change={stats.reachChange}
                 changeLabel="vs. letzter Monat"
                 icon={TrendingUp}
                 color="green"
